@@ -201,7 +201,7 @@ export default function Login({
               type="button"
               disabled
               onClick={() => setShowForgotPassword(true)}
-              className="text-sm text-blue-600 hover:text-blue-700"
+              className="text-sm text-blue-600 hover:text-gray-700"
             >
               Şifrəni unutmuşam
             </button>
