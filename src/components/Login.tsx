@@ -134,7 +134,7 @@ export default function Login({ onLoginSuccess }: { onLoginSuccess: () => void }
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-8">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-gray-900">Anbar ERP</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Medlab Anbar ERP</h1>
           <p className="text-sm text-gray-600 mt-2">İdarəetmə Sisteminə Giriş</p>
         </div>
 
@@ -187,10 +187,11 @@ export default function Login({ onLoginSuccess }: { onLoginSuccess: () => void }
 
             <button
               type="button"
+              disabled
               onClick={() => setShowForgotPassword(true)}
               className="text-sm text-blue-600 hover:text-blue-700"
             >
-              Şifrəni unutmuşam?
+              Şifrəni unutmuşam
             </button>
           </div>
 
@@ -207,6 +208,8 @@ export default function Login({ onLoginSuccess }: { onLoginSuccess: () => void }
         <div className="mt-6 pt-6 border-t border-gray-200 text-center">
           <p className="text-xs text-gray-500">
             Anbar İdarəetmə Sistemi v1.0
+            <br>
+            Neyman Badalov 2025
           </p>
         </div>
       </div>
