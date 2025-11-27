@@ -1,20 +1,31 @@
-import { useState } from 'react';
-import { Database, Package, FileText, ArrowLeftRight, ArrowUpRight, ClipboardList, User, LogOut, Key, ChevronDown } from 'lucide-react';
-import { useAuth } from './contexts/AuthContext';
-import Login from './components/Login';
-import ChangePassword from './components/ChangePassword';
-import Templates from './components/Templates';
-import WarehouseEntry from './components/WarehouseEntry';
-import WarehouseList from './components/WarehouseList';
-import WarehouseTransfer from './components/WarehouseTransfer';
-import WarehouseExit from './components/WarehouseExit';
-import InventoryCount from './components/InventoryCount';
+import { useState } from "react";
+import {
+  Database,
+  Package,
+  FileText,
+  ArrowLeftRight,
+  ArrowUpRight,
+  ClipboardList,
+  User,
+  LogOut,
+  Key,
+  ChevronDown,
+} from "lucide-react";
+import { useAuth } from "./contexts/AuthContext";
+import Login from "./components/Login";
+import ChangePassword from "./components/ChangePassword";
+import Templates from "./components/Templates";
+import WarehouseEntry from "./components/WarehouseEntry";
+import WarehouseList from "./components/WarehouseList";
+import WarehouseTransfer from "./components/WarehouseTransfer";
+import WarehouseExit from "./components/WarehouseExit";
+import InventoryCount from "./components/InventoryCount";
 
-type Page = 'templates' | 'entry' | 'list' | 'transfer' | 'exit' | 'count';
+type Page = "templates" | "entry" | "list" | "transfer" | "exit" | "count";
 
 export default function App() {
   const { user, loading, signOut } = useAuth();
-  const [currentPage, setCurrentPage] = useState<Page>('templates');
+  const [currentPage, setCurrentPage] = useState<Page>("templates");
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -38,27 +49,31 @@ export default function App() {
   };
 
   const navigation = [
-    { id: 'templates' as Page, name: 'Şablonlar', icon: Database },
-    { id: 'entry' as Page, name: 'Anbara Giriş', icon: ArrowUpRight },
-    { id: 'list' as Page, name: 'Anbar Siyahısı', icon: Package },
-    { id: 'transfer' as Page, name: 'Anbarlar Arası Transfer', icon: ArrowLeftRight },
-    { id: 'exit' as Page, name: 'Anbardan Çıxış', icon: FileText },
-    { id: 'count' as Page, name: 'Anbar Sayımı', icon: ClipboardList },
+    { id: "templates" as Page, name: "Şablonlar", icon: Database },
+    { id: "entry" as Page, name: "Anbara Giriş", icon: ArrowUpRight },
+    { id: "list" as Page, name: "Anbar Siyahısı", icon: Package },
+    {
+      id: "transfer" as Page,
+      name: "Anbarlar Arası Transfer",
+      icon: ArrowLeftRight,
+    },
+    { id: "exit" as Page, name: "Anbardan Çıxış", icon: FileText },
+    { id: "count" as Page, name: "Anbar Sayımı", icon: ClipboardList },
   ];
 
   const renderPage = () => {
     switch (currentPage) {
-      case 'templates':
+      case "templates":
         return <Templates />;
-      case 'entry':
+      case "entry":
         return <WarehouseEntry />;
-      case 'list':
+      case "list":
         return <WarehouseList />;
-      case 'transfer':
+      case "transfer":
         return <WarehouseTransfer />;
-      case 'exit':
+      case "exit":
         return <WarehouseExit />;
-      case 'count':
+      case "count":
         return <InventoryCount />;
       default:
         return <Templates />;
@@ -69,8 +84,17 @@ export default function App() {
     <div className="flex h-screen bg-gray-50">
       <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
         <div className="p-6 border-b border-gray-200">
-          <h1 className="text-xl font-semibold text-gray-900">Anbar ERP</h1>
-          <p className="text-sm text-gray-500 mt-1">İdarəetmə Sistemi</p>
+          <div className="flex items-center gap-3">
+            <img
+              src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQyxhbQegL1l9S864Dmi8fN6fxkl3MiyhS_lA&s"
+              alt="Medlab Logo"
+              className="h-8 w-auto object-contain"
+            />
+            <div>
+              <h1 className="text-xl font-semibold text-gray-900">Anbar ERP</h1>
+              <p className="text-sm text-gray-500 mt-0.5">İdarəetmə Sistemi</p>
+            </div>
+          </div>
         </div>
 
         <nav className="flex-1 p-4 space-y-1">
@@ -83,11 +107,15 @@ export default function App() {
                 onClick={() => setCurrentPage(item.id)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
                   isActive
-                    ? 'bg-blue-50 text-blue-700 font-medium'
-                    : 'text-gray-700 hover:bg-gray-50'
+                    ? "bg-blue-50 text-blue-700 font-medium"
+                    : "text-gray-700 hover:bg-gray-50"
                 }`}
               >
-                <Icon className={`w-5 h-5 ${isActive ? 'text-blue-700' : 'text-gray-400'}`} />
+                <Icon
+                  className={`w-5 h-5 ${
+                    isActive ? "text-blue-700" : "text-gray-400"
+                  }`}
+                />
                 <span className="text-sm">{item.name}</span>
               </button>
             );
@@ -104,14 +132,16 @@ export default function App() {
                 <User className="w-5 h-5 text-gray-600" />
                 <div className="text-left">
                   <p className="text-sm font-medium text-gray-900">
-                    {user?.email?.split('@')[0] || 'İstifadəçi'}
+                    {user?.email?.split("@")[0] || "İstifadəçi"}
                   </p>
                   <p className="text-xs text-gray-500">İstifadəçi</p>
                 </div>
               </div>
-              <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${
-                showUserMenu ? 'rotate-180' : ''
-              }`} />
+              <ChevronDown
+                className={`w-4 h-4 text-gray-400 transition-transform ${
+                  showUserMenu ? "rotate-180" : ""
+                }`}
+              />
             </button>
 
             {showUserMenu && (
@@ -139,9 +169,7 @@ export default function App() {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-auto">
-        {renderPage()}
-      </main>
+      <main className="flex-1 overflow-auto">{renderPage()}</main>
 
       {showChangePassword && (
         <ChangePassword onClose={() => setShowChangePassword(false)} />

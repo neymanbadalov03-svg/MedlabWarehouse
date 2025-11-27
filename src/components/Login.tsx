@@ -145,6 +145,12 @@ export default function Login({
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-8">
         <div className="mb-8 text-center">
+          <img
+            src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQyxhbQegL1l9S864Dmi8fN6fxkl3MiyhS_lA&s"
+            alt="Medlab Logo"
+            className="mx-auto mb-4 h-24 w-auto object-contain"
+          />
+
           <h1 className="text-3xl font-bold text-gray-900">Medlab Anbar ERP</h1>
           <p className="text-sm text-gray-600 mt-2">
             İdarəetmə Sisteminə Giriş
