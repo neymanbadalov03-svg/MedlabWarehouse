@@ -128,7 +128,8 @@ export default function Login({
               </button>
               <button
                 type="submit"
-                disabled={loading}
+                // disabled={loading}
+                disabled
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
                 {loading ? "Göndərilir..." : "Link Göndər"}
@@ -199,7 +200,7 @@ export default function Login({
 
             <button
               type="button"
-              disabled
+              // disabled
               onClick={() => setShowForgotPassword(true)}
               className="text-sm text-blue-600 hover:text-gray-700"
             >
