@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, FileDown } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { supabase } from '../lib/supabase';
 import type { ProductType } from '../types/database';
 
@@ -153,6 +154,51 @@ export default function WarehouseExit() {
 
   const totalAmount = filteredExits.reduce((sum, exit) => sum + exit.total_price, 0);
 
+  const exportToExcel = () => {
+    const excelData = filteredExits.map((exit) => ({
+      'Date': new Date(exit.date).toLocaleDateString('az-AZ'),
+      'Exit Type': exit.reason === 'transfer' ? 'Transfer' :
+                   exit.reason === 'inventory_loss' ? 'Sayım Xərci' :
+                   exit.reason === 'invoice_return' ? 'Qaimə Geri Qaytarma' : 'Sərfiyyat',
+      'Product Code': exit.product_code,
+      'Product Name': exit.product_name,
+      'Product Category (Type)': exit.product_type === 'reagent' ? 'Reagent' : 'Sərfiyyat',
+      'Warehouse': exit.warehouse_name,
+      'From Location': exit.from_warehouse || '-',
+      'To Location': exit.to_warehouse || '-',
+      'Quantity': exit.quantity.toFixed(2),
+      'Unit Price': exit.unit_price.toFixed(2),
+      'Total Amount': exit.total_price.toFixed(2),
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+
+    const columnWidths = [
+      { wch: 12 },
+      { wch: 18 },
+      { wch: 15 },
+      { wch: 30 },
+      { wch: 20 },
+      { wch: 20 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 15 },
+    ];
+    worksheet['!cols'] = columnWidths;
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Warehouse Exits');
+
+    const timestamp = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(workbook, `Warehouse_Exits_${timestamp}.xlsx`, {
+      bookType: 'xlsx',
+      type: 'binary',
+      compression: true
+    });
+  };
+
   const getReasonBadge = (reason: string) => {
     if (reason === 'transfer') {
       return (
@@ -296,16 +342,25 @@ export default function WarehouseExit() {
           </div>
         </div>
 
-        {filteredExits.length > 0 && (
-          <div className="mt-4 flex gap-6">
-            <div className="text-sm">
-              <span className="text-gray-500">Ümumi çıxış: </span>
-              <span className="font-semibold text-gray-900">{filteredExits.length}</span>
+{filteredExits.length > 0 && (
+          <div className="mt-4 flex justify-between items-center">
+            <div className="flex gap-6">
+              <div className="text-sm">
+                <span className="text-gray-500">Ümumi çıxış: </span>
+                <span className="font-semibold text-gray-900">{filteredExits.length}</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-gray-500">Ümumi məbləğ: </span>
+                <span className="font-semibold text-gray-900">{totalAmount.toFixed(2)} ₼</span>
+              </div>
             </div>
-            <div className="text-sm">
-              <span className="text-gray-500">Ümumi məbləğ: </span>
-              <span className="font-semibold text-gray-900">{totalAmount.toFixed(2)} ₼</span>
-            </div>
+            <button
+              onClick={exportToExcel}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              <FileDown className="w-4 h-4" />
+              Export Excel
+            </button>
           </div>
         )}
       </div>
