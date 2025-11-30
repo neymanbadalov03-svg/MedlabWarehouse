@@ -33,15 +33,20 @@ export default function WarehouseTransfer() {
   }, [fromWarehouse]);
 
   const loadWarehouses = async () => {
-    const { data } = await supabase.from('warehouses').select('*').order('name');
+    const { data } = await supabase.from('warehouses').select('id, name, code').order('name');
     if (data) setWarehouses(data);
   };
 
   const loadWarehouseStock = async () => {
     setLoading(true);
 
-    const { data: reagents } = await supabase.from('reagents').select('*');
-    const { data: consumables } = await supabase.from('consumables').select('*');
+    const [reagentsRes, consumablesRes] = await Promise.all([
+      supabase.from('reagents').select('id, code, name').order('code'),
+      supabase.from('consumables').select('id, code, name').order('code')
+    ]);
+
+    const { data: reagents } = reagentsRes;
+    const { data: consumables } = consumablesRes;
 
     const allProducts = [
       ...(reagents || []).map((r) => ({ ...r, type: 'reagent' as const })),

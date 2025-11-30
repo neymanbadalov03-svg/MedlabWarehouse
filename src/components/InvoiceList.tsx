@@ -52,39 +52,44 @@ export default function InvoiceList({ warehouseId, onInvoiceChange }: Props) {
 
     let query = supabase
       .from('invoices')
-      .select('*')
+      .select('id, invoice_code, supplier, date, warehouse_id, status, created_at')
       .order('date', { ascending: false });
 
     if (warehouseId) {
       query = query.eq('warehouse_id', warehouseId);
     }
 
-    const { data: invoicesData } = await query;
+    const [invoicesRes, warehousesRes] = await Promise.all([
+      query,
+      supabase.from('warehouses').select('id, name')
+    ]);
+
+    const invoicesData = invoicesRes.data;
 
     if (!invoicesData) {
       setLoading(false);
       return;
     }
 
-    const { data: warehouses } = await supabase.from('warehouses').select('*');
-    const warehouseMap = new Map(warehouses?.map(w => [w.id, w.name]) || []);
+    const warehouseMap = new Map(warehousesRes.data?.map(w => [w.id, w.name]) || []);
 
-    const enrichedInvoices: Invoice[] = [];
+    const invoiceIds = invoicesData.map(inv => inv.id);
+    const { data: allItems } = await supabase
+      .from('invoice_items')
+      .select('invoice_id, total_price')
+      .in('invoice_id', invoiceIds);
 
-    for (const invoice of invoicesData) {
-      const { data: items } = await supabase
-        .from('invoice_items')
-        .select('total_price')
-        .eq('invoice_id', invoice.id);
+    const itemsByInvoice = new Map<string, number>();
+    (allItems || []).forEach(item => {
+      const current = itemsByInvoice.get(item.invoice_id) || 0;
+      itemsByInvoice.set(item.invoice_id, current + Number(item.total_price));
+    });
 
-      const totalAmount = (items || []).reduce((sum, item) => sum + Number(item.total_price), 0);
-
-      enrichedInvoices.push({
-        ...invoice,
-        warehouse_name: warehouseMap.get(invoice.warehouse_id) || 'N/A',
-        total_amount: totalAmount,
-      });
-    }
+    const enrichedInvoices: Invoice[] = invoicesData.map(invoice => ({
+      ...invoice,
+      warehouse_name: warehouseMap.get(invoice.warehouse_id) || 'N/A',
+      total_amount: itemsByInvoice.get(invoice.id) || 0,
+    }));
 
     setInvoices(enrichedInvoices);
     setLoading(false);
@@ -93,15 +98,18 @@ export default function InvoiceList({ warehouseId, onInvoiceChange }: Props) {
   const viewInvoice = async (invoice: Invoice) => {
     setSelectedInvoice(invoice);
 
-    const { data: items } = await supabase
-      .from('invoice_items')
-      .select('*')
-      .eq('invoice_id', invoice.id);
+    const [itemsRes, reagentsRes, consumablesRes] = await Promise.all([
+      supabase.from('invoice_items').select('product_type, product_id, quantity, unit_price, total_price').eq('invoice_id', invoice.id),
+      supabase.from('reagents').select('id, name'),
+      supabase.from('consumables').select('id, name')
+    ]);
+
+    const items = itemsRes.data;
 
     if (!items) return;
 
-    const { data: reagents } = await supabase.from('reagents').select('*');
-    const { data: consumables } = await supabase.from('consumables').select('*');
+    const { data: reagents } = reagentsRes;
+    const { data: consumables } = consumablesRes;
 
     const reagentMap = new Map(reagents?.map(r => [r.id, r.name]) || []);
     const consumableMap = new Map(consumables?.map(c => [c.id, c.name]) || []);

@@ -38,9 +38,9 @@ export default function WarehouseEntry() {
 
   const loadData = async () => {
     const [warehousesRes, reagentsRes, consumablesRes] = await Promise.all([
-      supabase.from('warehouses').select('*').order('name'),
-      supabase.from('reagents').select('*').order('code'),
-      supabase.from('consumables').select('*').order('code'),
+      supabase.from('warehouses').select('id, name, code').order('name'),
+      supabase.from('reagents').select('id, code, name').order('code'),
+      supabase.from('consumables').select('id, code, name').order('code'),
     ]);
 
     if (warehousesRes.data) setWarehouses(warehousesRes.data);

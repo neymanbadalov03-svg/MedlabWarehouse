@@ -37,17 +37,19 @@ export default function CountList() {
   const loadCounts = async () => {
     setLoading(true);
 
-    const { data: countsData } = await supabase
-      .from('inventory_count')
-      .select('*')
-      .order('date', { ascending: false });
+    const [countsRes, warehousesRes] = await Promise.all([
+      supabase.from('inventory_count').select('id, count_code, warehouse_id, date, total_loss_amount, created_at').order('date', { ascending: false }),
+      supabase.from('warehouses').select('id, name')
+    ]);
+
+    const countsData = countsRes.data;
 
     if (!countsData) {
       setLoading(false);
       return;
     }
 
-    const { data: warehouses } = await supabase.from('warehouses').select('*');
+    const { data: warehouses } = warehousesRes;
     const warehouseMap = new Map(warehouses?.map(w => [w.id, w.name]) || []);
 
     const enrichedCounts: Count[] = countsData.map(count => ({

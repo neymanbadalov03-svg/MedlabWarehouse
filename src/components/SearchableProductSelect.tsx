@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, ChevronDown } from 'lucide-react';
 import type { ProductType } from '../types/database';
 
@@ -28,18 +28,21 @@ export default function SearchableProductSelect({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const selectedProduct = products.find((p) => p.id === value);
+  const selectedProduct = useMemo(() => products.find((p) => p.id === value), [products, value]);
+
   const displayText = selectedProduct
     ? `${selectedProduct.code} – ${selectedProduct.name}`
     : '';
 
-  const filteredProducts = products.filter((product) => {
+  const filteredProducts = useMemo(() => {
+    if (!searchTerm) return products;
+
     const search = searchTerm.toLowerCase();
-    return (
+    return products.filter((product) =>
       product.code.toLowerCase().includes(search) ||
       product.name.toLowerCase().includes(search)
     );
-  });
+  }, [products, searchTerm]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

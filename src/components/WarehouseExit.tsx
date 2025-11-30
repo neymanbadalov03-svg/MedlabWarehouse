@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Search, Filter, FileDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { supabase } from '../lib/supabase';
@@ -43,27 +43,32 @@ export default function WarehouseExit() {
   }, [exits, searchTerm, filterType, filterReason, startDate, endDate, filterFromWarehouse, filterToWarehouse]);
 
   const loadWarehouses = async () => {
-    const { data } = await supabase.from('warehouses').select('id, name').order('name');
+    const { data } = await supabase.from('warehouses').select('id, name, code').order('name');
     if (data) setWarehouses(data);
   };
 
   const loadExits = async () => {
     setLoading(true);
 
-    const { data: stockOuts } = await supabase
-      .from('stock_out')
-      .select('*, stock_out_items(*)')
-      .order('date', { ascending: false });
+    const [stockOutsRes, warehousesRes, reagentsRes, consumablesRes, transfersRes] = await Promise.all([
+      supabase.from('stock_out').select('id, warehouse_id, date, reason, transfer_id, stock_out_items(id, product_type, product_id, batch_date, quantity, unit_price, total_price)').order('date', { ascending: false }),
+      supabase.from('warehouses').select('id, name'),
+      supabase.from('reagents').select('id, code, name'),
+      supabase.from('consumables').select('id, code, name'),
+      supabase.from('transfers').select('id, from_warehouse_id, to_warehouse_id')
+    ]);
+
+    const stockOuts = stockOutsRes.data;
 
     if (!stockOuts) {
       setLoading(false);
       return;
     }
 
-    const { data: warehouses } = await supabase.from('warehouses').select('*');
-    const { data: reagents } = await supabase.from('reagents').select('*');
-    const { data: consumables } = await supabase.from('consumables').select('*');
-    const { data: transfers } = await supabase.from('transfers').select('*');
+    const { data: warehouses } = warehousesRes;
+    const { data: reagents } = reagentsRes;
+    const { data: consumables } = consumablesRes;
+    const { data: transfers } = transfersRes;
 
     const warehouseMap = new Map(warehouses?.map((w) => [w.id, w.name]) || []);
     const reagentMap = new Map(reagents?.map((r) => [r.id, { code: r.code, name: r.name }]) || []);
@@ -114,40 +119,32 @@ export default function WarehouseExit() {
   };
 
   const applyFilters = () => {
-    let filtered = [...exits];
+    const term = searchTerm.toLowerCase();
 
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (exit) =>
-          exit.product_code.toLowerCase().includes(term) ||
-          exit.product_name.toLowerCase().includes(term)
-      );
-    }
-
-    if (filterType !== 'all') {
-      filtered = filtered.filter((exit) => exit.product_type === filterType);
-    }
-
-    if (filterReason !== 'all') {
-      filtered = filtered.filter((exit) => exit.reason === filterReason);
-    }
-
-    if (startDate) {
-      filtered = filtered.filter((exit) => exit.date >= startDate);
-    }
-
-    if (endDate) {
-      filtered = filtered.filter((exit) => exit.date <= endDate);
-    }
-
-    if (filterFromWarehouse !== 'all') {
-      filtered = filtered.filter((exit) => exit.from_warehouse === filterFromWarehouse);
-    }
-
-    if (filterToWarehouse !== 'all') {
-      filtered = filtered.filter((exit) => exit.to_warehouse === filterToWarehouse);
-    }
+    const filtered = exits.filter((exit) => {
+      if (searchTerm && !(exit.product_code.toLowerCase().includes(term) || exit.product_name.toLowerCase().includes(term))) {
+        return false;
+      }
+      if (filterType !== 'all' && exit.product_type !== filterType) {
+        return false;
+      }
+      if (filterReason !== 'all' && exit.reason !== filterReason) {
+        return false;
+      }
+      if (startDate && exit.date < startDate) {
+        return false;
+      }
+      if (endDate && exit.date > endDate) {
+        return false;
+      }
+      if (filterFromWarehouse !== 'all' && exit.from_warehouse !== filterFromWarehouse) {
+        return false;
+      }
+      if (filterToWarehouse !== 'all' && exit.to_warehouse !== filterToWarehouse) {
+        return false;
+      }
+      return true;
+    });
 
     setFilteredExits(filtered);
   };

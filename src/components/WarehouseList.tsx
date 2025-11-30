@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Search, ChevronRight, Download } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { calculateProductStockInWarehouse } from '../lib/stockCalculations';
@@ -23,6 +23,10 @@ export default function WarehouseList() {
   const [loading, setLoading] = useState(false);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>('');
+  const [productsCache, setProductsCache] = useState<{
+    reagents: any[];
+    consumables: any[];
+  } | null>(null);
 
   useEffect(() => {
     loadWarehouses();
@@ -39,7 +43,7 @@ export default function WarehouseList() {
   const loadWarehouses = async () => {
     const { data } = await supabase
       .from('warehouses')
-      .select('*')
+      .select('id, name, address, code')
       .order('name');
 
     if (data && data.length > 0) {
@@ -48,17 +52,33 @@ export default function WarehouseList() {
     }
   };
 
+  const loadProductsCache = useCallback(async () => {
+    if (productsCache) return productsCache;
+
+    const [reagentsRes, consumablesRes] = await Promise.all([
+      supabase.from('reagents').select('id, code, name').order('code'),
+      supabase.from('consumables').select('id, code, name').order('code')
+    ]);
+
+    const cache = {
+      reagents: reagentsRes.data || [],
+      consumables: consumablesRes.data || []
+    };
+
+    setProductsCache(cache);
+    return cache;
+  }, [productsCache]);
+
   const loadStocks = async () => {
     if (!selectedWarehouse) return;
 
     setLoading(true);
 
-    const { data: reagents } = await supabase.from('reagents').select('*');
-    const { data: consumables } = await supabase.from('consumables').select('*');
+    const cache = await loadProductsCache();
 
     const allProducts = [
-      ...(reagents || []).map((r) => ({ ...r, type: 'reagent' as const })),
-      ...(consumables || []).map((c) => ({ ...c, type: 'consumable' as const })),
+      ...cache.reagents.map((r) => ({ ...r, type: 'reagent' as const })),
+      ...cache.consumables.map((c) => ({ ...c, type: 'consumable' as const })),
     ];
 
     const stockSummaries: StockSummaryWithWarehouse[] = [];
@@ -147,12 +167,17 @@ export default function WarehouseList() {
     setLoading(false);
   };
 
-  const filteredStocks = stocks.filter(
-    (stock) =>
-      stock.product_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      stock.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (stock.warehouse_name || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredStocks = useMemo(() => {
+    if (!searchTerm) return stocks;
+
+    const term = searchTerm.toLowerCase();
+    return stocks.filter(
+      (stock) =>
+        stock.product_code.toLowerCase().includes(term) ||
+        stock.product_name.toLowerCase().includes(term) ||
+        (stock.warehouse_name || '').toLowerCase().includes(term)
+    );
+  }, [stocks, searchTerm]);
 
   const exportToExcel = () => {
     if (!selectedWarehouse || filteredStocks.length === 0) return;
