@@ -27,6 +27,8 @@ export default function WarehouseList() {
     reagents: any[];
     consumables: any[];
   } | null>(null);
+  const [batchSize] = useState(5);
+  const [displayedCount, setDisplayedCount] = useState(0);
 
   useEffect(() => {
     loadWarehouses();
@@ -73,6 +75,8 @@ export default function WarehouseList() {
     if (!selectedWarehouse) return;
 
     setLoading(true);
+    setStocks([]);
+    setDisplayedCount(0);
 
     const cache = await loadProductsCache();
 
@@ -81,17 +85,63 @@ export default function WarehouseList() {
       ...cache.consumables.map((c) => ({ ...c, type: 'consumable' as const })),
     ];
 
-    const stockSummaries: StockSummaryWithWarehouse[] = [];
+    const processProductBatch = async (products: typeof allProducts) => {
+      const results: StockSummaryWithWarehouse[] = [];
 
-    if (selectedWarehouse === 'all') {
-      for (const warehouse of warehouses) {
-        for (const product of allProducts) {
-          const stock = await calculateProductStockInWarehouse(
-            warehouse.id,
-            product.id,
-            product.type
+      if (selectedWarehouse === 'all') {
+        for (const warehouse of warehouses) {
+          const batchResults = await Promise.all(
+            products.map((product) =>
+              calculateProductStockInWarehouse(warehouse.id, product.id, product.type).then((stock) => ({
+                product,
+                stock,
+                warehouse,
+              }))
+            )
           );
 
+          for (const { product, stock, warehouse } of batchResults) {
+            if (stock.totalQuantity > 0) {
+              const batches: StockBatch[] = stock.batches.map(batch => ({
+                product_id: product.id,
+                product_code: product.code,
+                product_name: product.name,
+                product_type: product.type,
+                batch_date: batch.batch_date,
+                supplier: batch.supplier || '',
+                quantity: batch.quantity,
+                unit_price: batch.unit_price,
+                total_price: batch.total_price,
+              }));
+
+              const lastDate = batches.length > 0 ? batches[0].batch_date : '';
+
+              results.push({
+                product_id: product.id,
+                product_code: product.code,
+                product_name: product.name,
+                product_type: product.type,
+                total_quantity: stock.totalQuantity,
+                total_amount: stock.totalValue,
+                last_entry_date: lastDate,
+                batches,
+                warehouse_id: warehouse.id,
+                warehouse_name: warehouse.name,
+              });
+            }
+          }
+        }
+      } else {
+        const batchResults = await Promise.all(
+          products.map((product) =>
+            calculateProductStockInWarehouse(selectedWarehouse, product.id, product.type).then((stock) => ({
+              product,
+              stock,
+            }))
+          )
+        );
+
+        for (const { product, stock } of batchResults) {
           if (stock.totalQuantity > 0) {
             const batches: StockBatch[] = stock.batches.map(batch => ({
               product_id: product.id,
@@ -107,7 +157,7 @@ export default function WarehouseList() {
 
             const lastDate = batches.length > 0 ? batches[0].batch_date : '';
 
-            stockSummaries.push({
+            results.push({
               product_id: product.id,
               product_code: product.code,
               product_name: product.name,
@@ -116,55 +166,36 @@ export default function WarehouseList() {
               total_amount: stock.totalValue,
               last_entry_date: lastDate,
               batches,
-              warehouse_id: warehouse.id,
-              warehouse_name: warehouse.name,
             });
           }
         }
       }
-    } else {
-      for (const product of allProducts) {
-        const stock = await calculateProductStockInWarehouse(
-          selectedWarehouse,
-          product.id,
-          product.type
-        );
 
-        if (stock.totalQuantity > 0) {
-          const batches: StockBatch[] = stock.batches.map(batch => ({
-            product_id: product.id,
-            product_code: product.code,
-            product_name: product.name,
-            product_type: product.type,
-            batch_date: batch.batch_date,
-            supplier: batch.supplier || '',
-            quantity: batch.quantity,
-            unit_price: batch.unit_price,
-            total_price: batch.total_price,
-          }));
+      return results;
+    };
 
-          const lastDate = batches.length > 0 ? batches[0].batch_date : '';
+    const processBatches = async () => {
+      let allResults: StockSummaryWithWarehouse[] = [];
 
-          stockSummaries.push({
-            product_id: product.id,
-            product_code: product.code,
-            product_name: product.name,
-            product_type: product.type,
-            total_quantity: stock.totalQuantity,
-            total_amount: stock.totalValue,
-            last_entry_date: lastDate,
-            batches,
-          });
-        }
+      for (let i = 0; i < allProducts.length; i += batchSize) {
+        const batch = allProducts.slice(i, i + batchSize);
+        const batchResults = await processProductBatch(batch);
+        allResults = [...allResults, ...batchResults];
+
+        const sorted = allResults.sort((a, b) => {
+          const warehouseCompare = (a.warehouse_name || '').localeCompare(b.warehouse_name || '');
+          if (warehouseCompare !== 0) return warehouseCompare;
+          return a.product_code.localeCompare(b.product_code);
+        });
+
+        setStocks(sorted);
+        setDisplayedCount(allResults.length);
       }
-    }
 
-    setStocks(stockSummaries.sort((a, b) => {
-      const warehouseCompare = (a.warehouse_name || '').localeCompare(b.warehouse_name || '');
-      if (warehouseCompare !== 0) return warehouseCompare;
-      return a.product_code.localeCompare(b.product_code);
-    }));
-    setLoading(false);
+      setLoading(false);
+    };
+
+    processBatches();
   };
 
   const filteredStocks = useMemo(() => {
@@ -290,9 +321,12 @@ export default function WarehouseList() {
         </div>
 
         <div className="flex-1 overflow-auto p-6">
-          {loading ? (
+          {loading && stocks.length === 0 ? (
             <div className="flex items-center justify-center h-64">
-              <div className="text-gray-500">Yüklənir...</div>
+              <div className="text-center">
+                <div className="text-gray-500 mb-2">Məhsullar yüklənir...</div>
+                <div className="w-8 h-8 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin mx-auto"></div>
+              </div>
             </div>
           ) : (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -383,6 +417,12 @@ export default function WarehouseList() {
                   </tbody>
                 </table>
               </div>
+              {loading && stocks.length > 0 && (
+                <div className="bg-blue-50 border-t border-gray-200 px-6 py-3 text-sm text-blue-700 flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                  Daha çox məhsul yüklənir... ({displayedCount} göstərildi)
+                </div>
+              )}
             </div>
           )}
         </div>
