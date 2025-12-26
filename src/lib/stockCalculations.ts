@@ -20,11 +20,15 @@ export async function calculateProductStockInWarehouse(
 ): Promise<StockCalculationResult> {
   const { data: invoices } = await supabase
     .from('invoices')
-    .select('id')
+    .select('id, supplier')
     .eq('warehouse_id', warehouseId)
     .eq('status', 'active');
 
-  const invoiceIds = (invoices || []).map(inv => inv.id);
+  const invoiceMap = new Map<string, string>();
+  const invoiceIds = (invoices || []).map(inv => {
+    invoiceMap.set(inv.id, inv.supplier || '');
+    return inv.id;
+  });
 
   const { data: entries } = invoiceIds.length > 0
     ? await supabase
@@ -35,54 +39,60 @@ export async function calculateProductStockInWarehouse(
         .in('invoice_id', invoiceIds)
     : { data: [] };
 
-  const { data: transfersIn } = await supabase
-    .from('transfers')
-    .select('id')
-    .eq('to_warehouse_id', warehouseId);
+  const [
+    { data: transfersIn },
+    { data: stockOuts },
+    { data: transfersOut }
+  ] = await Promise.all([
+    supabase
+      .from('transfers')
+      .select('id')
+      .eq('to_warehouse_id', warehouseId),
+    supabase
+      .from('stock_out')
+      .select('id')
+      .eq('warehouse_id', warehouseId)
+      .neq('reason', 'transfer'),
+    supabase
+      .from('transfers')
+      .select('id')
+      .eq('from_warehouse_id', warehouseId)
+  ]);
 
   const transferInIds = (transfersIn || []).map(t => t.id);
-
-  const { data: transferItemsIn } = transferInIds.length > 0
-    ? await supabase
-        .from('transfer_items')
-        .select('quantity, unit_price, batch_date')
-        .eq('product_type', productType)
-        .eq('product_id', productId)
-        .in('transfer_id', transferInIds)
-    : { data: [] };
-
-  const { data: stockOuts } = await supabase
-    .from('stock_out')
-    .select('id')
-    .eq('warehouse_id', warehouseId)
-    .neq('reason', 'transfer');
-
   const stockOutIds = (stockOuts || []).map(so => so.id);
-
-  const { data: stockOutItems } = stockOutIds.length > 0
-    ? await supabase
-        .from('stock_out_items')
-        .select('quantity, batch_date')
-        .eq('product_type', productType)
-        .eq('product_id', productId)
-        .in('stockout_id', stockOutIds)
-    : { data: [] };
-
-  const { data: transfersOut } = await supabase
-    .from('transfers')
-    .select('id')
-    .eq('from_warehouse_id', warehouseId);
-
   const transferOutIds = (transfersOut || []).map(t => t.id);
 
-  const { data: transferItemsOut } = transferOutIds.length > 0
-    ? await supabase
-        .from('transfer_items')
-        .select('quantity, batch_date')
-        .eq('product_type', productType)
-        .eq('product_id', productId)
-        .in('transfer_id', transferOutIds)
-    : { data: [] };
+  const [
+    { data: transferItemsIn },
+    { data: stockOutItems },
+    { data: transferItemsOut }
+  ] = await Promise.all([
+    transferInIds.length > 0
+      ? supabase
+          .from('transfer_items')
+          .select('quantity, unit_price, batch_date')
+          .eq('product_type', productType)
+          .eq('product_id', productId)
+          .in('transfer_id', transferInIds)
+      : Promise.resolve({ data: [] }),
+    stockOutIds.length > 0
+      ? supabase
+          .from('stock_out_items')
+          .select('quantity, batch_date')
+          .eq('product_type', productType)
+          .eq('product_id', productId)
+          .in('stockout_id', stockOutIds)
+      : Promise.resolve({ data: [] }),
+    transferOutIds.length > 0
+      ? supabase
+          .from('transfer_items')
+          .select('quantity, batch_date')
+          .eq('product_type', productType)
+          .eq('product_id', productId)
+          .in('transfer_id', transferOutIds)
+      : Promise.resolve({ data: [] })
+  ]);
 
   const batchMap = new Map<string, {
     quantity: number;
@@ -132,17 +142,7 @@ export async function calculateProductStockInWarehouse(
 
     if (netQty > 0) {
       const invoiceIds = Array.from(value.invoiceIds);
-      let supplier = '';
-
-      if (invoiceIds.length > 0) {
-        const { data: invoice } = await supabase
-          .from('invoices')
-          .select('supplier')
-          .eq('id', invoiceIds[0])
-          .maybeSingle();
-
-        if (invoice) supplier = invoice.supplier;
-      }
+      const supplier = invoiceIds.length > 0 ? invoiceMap.get(invoiceIds[0]) || '' : '';
 
       batches.push({
         batch_date: batchDate,

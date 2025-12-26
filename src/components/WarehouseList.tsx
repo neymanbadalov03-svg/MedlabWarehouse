@@ -27,7 +27,7 @@ export default function WarehouseList() {
     reagents: any[];
     consumables: any[];
   } | null>(null);
-  const [batchSize] = useState(5);
+  const [batchSize] = useState(15);
   const [displayedCount, setDisplayedCount] = useState(0);
 
   useEffect(() => {
@@ -58,8 +58,8 @@ export default function WarehouseList() {
     if (productsCache) return productsCache;
 
     const [reagentsRes, consumablesRes] = await Promise.all([
-      supabase.from('reagents').select('id, code, name').order('code'),
-      supabase.from('consumables').select('id, code, name').order('code')
+      supabase.from('reagents').select('id, code, name'),
+      supabase.from('consumables').select('id, code, name')
     ]);
 
     const cache = {
